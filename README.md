@@ -69,36 +69,38 @@ This document defines the v1.0 scope for the ShadeXX Extension project. The goal
 
 ## Architecture Overview
 
+End-to-end pipeline (verified May 2026 — see `docs/ARCHITECTURE.md` for the full architecture reference):
+
 ```
-Browser Page (MetaMask context)
-        │
-        │  window.ethereum.request() intercepted by content script
+Browser Page (MetaMask / dApp)
+        │  window.ethereum.request(...)
         ▼
-[Content Script — shadexx-interceptor.js]
-        │
-        │  Chrome runtime.sendMessage (structured clone)
+[Content Script — MAIN + ISOLATED worlds]      (Milestone 2, in progress)
+        │  chrome.runtime.sendMessage
         ▼
-[Background Service Worker — background.js]
-        │
-        │  xxdk-wasm WASM module running in worker
-        │  cMixx client initialized with xx network NDF
+[Background Service Worker]                     thin broker, no xxDK
+        │  chrome.runtime → offscreen
         ▼
-[cMixx Mixnet — 5-node cascade, ~1,000 msg anonymity set]
-        │
-        │  Anonymized request exits mixnet
+[Offscreen Document]                            chrome.* APIs + message bridge
+        │  iframe.postMessage
         ▼
-[Proxxy Relay Server — public endpoint]
-        │
-        │  Forwards to actual RPC provider (Infura, Alchemy, public nodes)
+[Sandbox Iframe — null origin, permissive CSP]  hosts xxdk-wasm + Proxxy
+        │  xxDK single-use REST (RequestRestLike)
         ▼
-[Ethereum / EVM RPC endpoint]
-        │
-        │  Response routes back through the same path in reverse
+[cMixx Mixnet — 5-node random cascade]
+        │  encrypted, IP-unlinkable
         ▼
-[MetaMask receives response — unchanged from its perspective]
+[Proxxy Relay Server]                           self-hosted today
+        │  HTTPS JSON-RPC
+        ▼
+[Ethereum / EVM RPC endpoint]                   sees the RPC but not your IP
+        │
+        ▼  Response returns through the same path in reverse
 ```
 
-**Key constraint:** Chrome Extension Manifest V3 service workers have a limited lifetime and no persistent DOM. The xxDK WASM module must be initialized on-demand and the cMixx client state must be managed carefully across worker sleep/wake cycles.
+**Why so many layers?** MV3 service workers can't host xxdk-wasm (no DOM, no `localStorage`, aggressive eviction). The offscreen document fixes that, but its CSP forbids `blob:` in `script-src` — which xxdk-wasm uses to load its WASM glue and worker scripts. The sandbox iframe pattern (manifest `sandbox.pages`) gives the WASM a permissive CSP context while the offscreen page bridges back to `chrome.runtime`. As of May 2026, this is the first MV3 extension to host xxdk-wasm directly — prior xxDK-in-browser work (Worldcoin Wave0, Haven, the bitfashioned XRPL demo) all kept xxdk-wasm in a normal webapp page. See `docs/ARCHITECTURE.md` for the full reasoning.
+
+**Relay required.** ShadeXX needs a reachable Proxxy relay to function. v1.0 will ship with instructions and a default relay (TBD); for development, see `docs/SELF_HOSTING_RELAY.md`.
 
 ---
 
@@ -107,26 +109,31 @@ Browser Page (MetaMask context)
 ```
 shadexx-extension/
 ├── src/
-│   ├── background/         # Service worker: xxDK init, cMixx client, message routing
-│   ├── content/            # Content scripts: window.ethereum interceptor
-│   ├── popup/              # Extension popup: status UI (React or vanilla JS)
-│   ├── proxy/              # Proxxy client: formats and sends requests through cMixx
-│   └── crypto/             # Helpers: quantum-safe key management, NDF fetching
+│   ├── background/             # Service worker: thin message broker + offscreen lifecycle
+│   ├── content/                # Content scripts (Milestone 2 — wrapper not yet implemented)
+│   ├── popup/                  # Extension popup: diagnostic status UI
+│   ├── offscreen/              # Offscreen document: bridges chrome.runtime ↔ sandbox iframe
+│   └── sandbox/                # Sandbox iframe: hosts xxdk-wasm + Proxxy client
+│       ├── sandbox.js          #   bootstraps xxDK, owns ProxxyClient
+│       └── proxxy-client.js    #   wire-level Proxxy single-use REST implementation
 ├── public/
-│   ├── manifest.json       # Chrome Extension MV3 manifest
-│   └── icons/              # Extension icons (16, 32, 48, 128px)
+│   ├── manifest.json           # MV3 manifest: permissions, sandbox.pages, CSPs, WAR
+│   ├── popup.html              # popup container
+│   ├── offscreen.html          # offscreen doc shell with hidden <iframe src=sandbox.html>
+│   └── sandbox.html            # sandbox iframe shell with inline base-path + localStorage shim
 ├── docs/
-│   ├── ARCHITECTURE.md     # Detailed architecture reference
-│   ├── SETUP.md            # Developer setup for WSL/Ubuntu 24.04
-│   └── GRANT_APPLICATION.md # xx Foundation grant application draft
-├── tests/
-│   └── rpc-routing.test.js # Jest test suite for RPC method coverage
+│   ├── ARCHITECTURE.md         # As-built architecture reference (updated 2026-05-18)
+│   ├── SETUP.md                # Developer setup for WSL/Ubuntu 24.04
+│   ├── SELF_HOSTING_RELAY.md   # How to run your own Proxxy relay (required today)
+│   └── GRANT_APPLICATION.md    # xx Foundation grant application draft
 ├── scripts/
-│   └── setup-dev.sh        # Bootstrap script for Ubuntu 24.04 WSL
-├── .gitignore
-├── package.json
-├── README.md               # This file
-└── SCOPE.md                # Detailed scope and milestone tracking
+│   └── setup-dev.sh            # Bootstrap script for Ubuntu 24.04 WSL
+├── webpack.config.js           # 5 entry bundles + CopyPlugin for xxdk-wasm/dist/
+├── babel.config.json
+├── .gitignore                  # Excludes dist/ (~144MB of WASM) and node_modules/
+├── package.json                # Note: xxdk-wasm pinned to ^0.3.22
+├── README.md                   # This file
+└── SCOPE.md                    # Milestone tracking
 ```
 
 ---

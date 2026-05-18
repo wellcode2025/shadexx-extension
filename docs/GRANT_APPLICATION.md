@@ -10,6 +10,21 @@ ShadeXX — Anonymous Web3 RPC Proxy Browser Extension
 
 ---
 
+## Status (May 2026)
+
+The core technical risk for this project — whether `xxdk-wasm` could be hosted inside a Chrome Manifest V3 extension at all — **has been retired**. As of 2026-05-18, a working prototype delivered a real Ethereum mainnet block number through cMixx end-to-end:
+
+```
+eth_blockNumber → cMixx mixnet → Proxxy relay → Ethereum mainnet
+→ {"jsonrpc":"2.0","result":"0x17f4c5e","id":1}  (block 25,119,838)
+```
+
+Round-trip latency: 9.3 seconds. As far as we have been able to verify, ShadeXX is the first MV3 extension to host xxdk-wasm directly — prior xxDK-in-browser work (Worldcoin Wave0, Haven, the bitfashioned XRPL demo) all kept xxdk-wasm in a regular webapp page.
+
+Architecture and protocol details: see [docs/ARCHITECTURE.md](./ARCHITECTURE.md). Verification setup: see [docs/SELF_HOSTING_RELAY.md](./SELF_HOSTING_RELAY.md).
+
+---
+
 ## Project Summary
 
 ShadeXX is a Chrome browser extension that routes all MetaMask (and EIP-1193 compatible) wallet RPC calls through the xx network's cMixx mixnet, making on-chain activity structurally unlinkable to the user's IP address and browsing session.
@@ -36,9 +51,9 @@ RPC providers like Infura and Alchemy build a complete surveillance database lin
 ShadeXX productizes the xx network's existing [Proxxy](https://learn.xx.network/dapps/proxxy/) protocol into a browser extension:
 
 1. Content script intercepts `window.ethereum.request()` calls
-2. Routes them through xxDK WASM cMixx client in the background service worker
-3. Anonymizes through a 5-node cMixx cascade (~1,000 message anonymity set)
-4. Forwards via Proxxy relay to actual RPC endpoint
+2. Routes them through xxdk-wasm hosted inside a sandboxed iframe nested in an MV3 offscreen document (see architecture doc — Chrome MV3 service workers cannot host xxdk-wasm directly, so the architecture nests four contexts)
+3. Anonymizes through a 5-node cMixx cascade with single-use ephemeral reception identities per request
+4. Forwards via Proxxy relay (self-hosted today; production relay sourcing in progress) to actual RPC endpoint
 5. Returns responses to the dApp — no workflow change for the user
 
 ---
@@ -61,16 +76,16 @@ ShadeXX productizes the xx network's existing [Proxxy](https://learn.xx.network/
 
 ## Milestones
 
-| # | Deliverable | Timeline |
-|---|---|---|
-| M1 | Loadable Chrome extension shell (MV3 scaffold) | Week 2 |
-| M2 | MetaMask provider interceptor working | Week 3 |
-| M3 | xxDK WASM running in service worker | Week 5 |
-| M4 | Full Proxxy routing: request/response round-trip | Week 7 |
-| M5 | Fallback & resilience — MetaMask never breaks | Week 8 |
-| M6 | Popup UI: status, metrics, toggle | Week 9 |
-| M7 | Test suite + documentation complete | Week 10 |
-| M8 | v1.0 release + Chrome Web Store submission | Week 12 |
+| # | Deliverable | Original timeline | Status |
+|---|---|---|---|
+| M1 | Loadable Chrome extension shell (MV3 scaffold) | Week 2 | ✅ Complete |
+| M2 | MetaMask provider interceptor working | Week 3 | 🟡 Deferred during M3 architecture work; ready to pick up |
+| M3 | xxDK WASM running inside the extension (architecture pivoted to offscreen + sandbox iframe) | Week 5 | ✅ Complete |
+| M4 | Full Proxxy routing: request/response round-trip | Week 7 | ✅ Complete (verified with real eth_blockNumber) |
+| M5 | Fallback & resilience — MetaMask never breaks | Week 8 | 🔲 Pending |
+| M6 | Popup UI: status, metrics, toggle | Week 9 | 🟡 Diagnostic version built; user-facing UI pending |
+| M7 | Test suite + documentation complete | Week 10 | 🟡 Architecture docs current; test suite pending |
+| M8 | v1.0 release + Chrome Web Store submission | Week 12 | 🔲 Pending |
 
 ---
 
