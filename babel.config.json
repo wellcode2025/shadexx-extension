@@ -1,0 +1,11 @@
+{
+  "presets": [
+    [
+      "@babel/preset-env",
+      {
+        "targets": { "chrome": "110" },
+        "bugfixes": true
+      }
+    ]
+  ]
+}

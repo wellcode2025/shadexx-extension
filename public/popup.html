@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ShadeXX</title>
+</head>
+<body>
+  <h1>ShadeXX</h1>
+  <div class="row">
+    <span class="label">Privacy</span>
+    <span id="status" class="value">…</span>
+  </div>
+  <div class="row">
+    <span class="label">Service worker</span>
+    <span id="sw" class="value">…</span>
+  </div>
+  <div class="row">
+    <span class="label">Offscreen doc</span>
+    <span id="offscreen" class="value">…</span>
+  </div>
+  <div class="row">
+    <span class="label">Sandbox iframe</span>
+    <span id="sandbox" class="value">…</span>
+  </div>
+  <div class="row">
+    <span class="label">xxdk-wasm</span>
+    <span id="xxdk" class="value">…</span>
+  </div>
+  <div class="row">
+    <span class="label">Proxxy / cMix</span>
+    <span id="proxxy" class="value">…</span>
+  </div>
+
+  <div class="buttonRow">
+    <button id="probeBtn">Probe xxdk</button>
+    <button id="initBtn">Init Proxxy</button>
+  </div>
+  <div class="buttonRow">
+    <button id="discoverBtn">Discover /networks</button>
+    <button id="blockBtn">eth_blockNumber</button>
+  </div>
+
+  <div id="detail">Click "Init Proxxy" to start the cMixx client (takes 30–60s the first time). Then "eth_blockNumber" to send a real RPC through the mixnet.</div>
+  <script src="popup.js"></script>
+</body>
+</html>

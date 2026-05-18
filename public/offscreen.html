@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ShadeXX offscreen</title>
+  <style>
+    /* Hidden iframe — sandbox runs invisibly */
+    #sandbox-frame {
+      width: 0;
+      height: 0;
+      border: 0;
+      position: absolute;
+    }
+  </style>
+</head>
+<body>
+  <!--
+    Offscreen document for ShadeXX.
+
+    Architecture after the Phase-2 CSP discovery:
+      - This page is the extension-page side. It can use chrome.* APIs.
+      - It iframes sandbox.html, which runs as an MV3 sandbox page with
+        permissive CSP and hosts xxdk-wasm.
+      - This page bridges chrome.runtime.onMessage (from the SW) and
+        iframe.postMessage (to/from the sandbox).
+  -->
+  <iframe id="sandbox-frame" src="sandbox.html"></iframe>
+  <script src="offscreen.js"></script>
+</body>
+</html>

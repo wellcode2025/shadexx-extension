@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ShadeXX sandbox</title>
+</head>
+<body>
+  <!--
+    Sandbox page for ShadeXX. Loaded as iframe by offscreen.html.
+    Runs with null origin and permissive CSP (allows blob:).
+
+    The inline script below MUST run before sandbox.js:
+      1. pre-set window.xxdkBasePath (xxdk reads this on import)
+      2. shim window.localStorage (sandbox null-origin throws on real access;
+         xxdk-wasm uses localStorage and would crash without this)
+  -->
+  <script>
+    // (1) Base path. document.location is chrome-extension://[id]/sandbox.html,
+    // so this resolves to chrome-extension://[id]/xxdk-wasm — the prefix xxdk
+    // appends /dist/... onto.
+    window.xxdkBasePath = new URL('xxdk-wasm', document.location.href);
+    console.log('[shadexx:sandbox] base path pre-set to', String(window.xxdkBasePath));
+
+    // (2) localStorage shim. Sandbox null-origin context throws SecurityError
+    // on any localStorage access. We replace it with an in-memory Map-backed
+    // shim implementing the full Web Storage interface. xxdk-wasm sees a
+    // normal localStorage and is none the wiser. Tradeoff: state is lost on
+    // iframe reload — fine for the spike, would route to chrome.storage via
+    // postMessage for production.
+    try {
+      const store = new Map();
+      const shim = {
+        get length() { return store.size; },
+        key(i) { return Array.from(store.keys())[i] ?? null; },
+        getItem(k) { const v = store.get(String(k)); return v === undefined ? null : v; },
+        setItem(k, v) { store.set(String(k), String(v)); },
+        removeItem(k) { store.delete(String(k)); },
+        clear() { store.clear(); },
+      };
+      Object.defineProperty(window, 'localStorage', {
+        value: shim,
+        writable: true,
+        configurable: true,
+      });
+      console.log('[shadexx:sandbox] localStorage shimmed (in-memory Map)');
+    } catch (e) {
+      console.error('[shadexx:sandbox] localStorage shim failed:', e);
+    }
+  </script>
+  <script src="sandbox.js"></script>
+</body>
+</html>
