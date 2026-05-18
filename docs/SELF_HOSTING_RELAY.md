@@ -12,6 +12,8 @@ ShadeXX is a Proxxy client. It needs a reachable Proxxy relay to forward decrypt
 
 Until a public relay is available, **self-hosting is the only way to test end-to-end**. This document walks through the setup we used to get a real `eth_blockNumber` round-trip working.
 
+> **License note on the relay code:** `xx-labs/blockchain-cmix-relay` does not currently ship a top-level LICENSE file. The repo is publicly hosted by xx-labs and clearly intended for open-source use, but in the strict legal default that means "all rights reserved." ShadeXX does not redistribute the relay binary or source — these instructions tell you to clone the official repo and build it yourself, so no redistribution obligations accrue here. If you ship a fork or modified relay you should ask xx-labs to add an explicit license first.
+
 ---
 
 ## Prerequisites

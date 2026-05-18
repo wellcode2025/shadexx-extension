@@ -4,6 +4,8 @@
 
 ShadeXX is a browser extension for Chrome and Firefox that silently routes all Web3 wallet RPC calls (MetaMask, Rabby, Coinbase Wallet, etc.) through the xx network's [cMixx](https://xx.network/cmixx/) metadata-shredding mixnet. The user installs it, and their on-chain activity is no longer linkable to their IP address or browsing session — no token purchase required, no technical knowledge required.
 
+> Built on **xxDK**, the **cMixx mixnet**, and the **Proxxy protocol** from the **xx network** — extending work by the **BitFashioned** team. See [Acknowledgments](#acknowledgments) for full credits.
+
 ---
 
 ## The Problem
@@ -183,3 +185,25 @@ shadexx-extension/
 | xx Foundation grants | https://forum.xx.network/c/grants/30 |
 | Chrome Extension MV3 docs | https://developer.chrome.com/docs/extensions/mv3/ |
 | EIP-1193 (provider API spec) | https://eips.ethereum.org/EIPS/eip-1193 |
+
+---
+
+## Acknowledgments
+
+ShadeXX is a client. It only works because of years of upstream work by the xx Foundation, xx network engineers, and the broader xx network community:
+
+- **xx network's [cMixx mixnet](https://xx.network/cmixx/)** is the cryptographic substrate ShadeXX rides on. Without the choice to design, build, and operate a production quantum-resistant batch mixnet, ShadeXX's privacy properties would not exist.
+
+- **[xxdk-wasm](https://github.com/xxfoundation/xxdk-wasm)** (BSD-2-Clause) — the WebAssembly bindings that let xxDK run in a browser. ShadeXX uses v0.3.22, self-hosted alongside the extension assets for MV3 compliance.
+
+- **[Proxxy protocol](https://learn.xx.network/dapps/proxxy/)** — the request-routing protocol ShadeXX implements client-side. ShadeXX speaks Proxxy; the relay is the other half of the conversation. Proxxy is built and maintained by [**BitFashioned**](https://bitfashioned.com) — **Baltasar Aroso**, **Bernardo Cardoso** ("Bernie"), and **Mario Yaksetig** — engineers who have worked on xx network since its inception and who effectively maintain Proxxy on behalf of xx Foundation.
+
+- **[xx-labs/blockchain-cmix-relay](https://github.com/xx-labs/blockchain-cmix-relay)** — the reference Proxxy relay implementation. Currently the only verified path for ShadeXX users to test end-to-end is to run this relay themselves (see [docs/SELF_HOSTING_RELAY.md](docs/SELF_HOSTING_RELAY.md)). ShadeXX does not redistribute this code; the relay runs as an independent process the extension talks to over cMixx.
+
+- **[bitfashioned/xrpl-proxxy-demo](https://github.com/bitfashioned/xrpl-proxxy-demo)** (Apache License 2.0) — **Rick Carback** and the BitFashioned team built the first webapp demo of driving Proxxy from a browser via xxdk-wasm. ShadeXX's [`src/sandbox/proxxy-client.js`](src/sandbox/proxxy-client.js) is a compressed JavaScript port of that demo's `useCmix.ts` (cMix init flow) and `proxxy-context.tsx` (Proxxy request envelope and send). The MV3 hosting architecture (offscreen + sandbox iframe) and the content-script integration are net-new in ShadeXX; the Proxxy protocol implementation is inherited. Original copyright © BitFashioned, licensed under the Apache License, Version 2.0; redistributed in this repository under the same terms via in-source notice in `proxxy-client.js`.
+
+- **Prior xxDK browser work** that informed ShadeXX's architecture decisions even though no code was directly ported: the [Worldcoin Wave0 traffic anonymizer](https://world.org/grant-recipients/wave0/xx-network) (delivered August 2024 by Rick Carback's team) and the [Haven browser extension](https://forum.xx.network/t/xxb-2024-003-haven-browser-extension-implementation/7056) (xxB-2024-003, delivered March 2026). Both kept xxdk-wasm in a regular webapp page; ShadeXX is the first to host it inside an MV3 extension directly.
+
+- **[David Chaum](https://en.wikipedia.org/wiki/David_Chaum)**'s foundational mixnet research and the broader xx network team's work bringing it to a production network are the reason any of this is possible at all.
+
+ShadeXX itself is MIT-licensed. Portions ported from Apache 2.0-licensed work (the Proxxy client logic in `src/sandbox/proxxy-client.js`) retain their original license terms — see the in-source SPDX header in that file. Improvements to xxdk-wasm, the Proxxy protocol, or related upstream projects that emerge from this work are intended to be contributed back.

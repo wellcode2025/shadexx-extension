@@ -1,8 +1,31 @@
+// SPDX-FileCopyrightText: BitFashioned (https://bitfashioned.com) — original work
+// SPDX-FileCopyrightText: 2026 ShadeXX contributors — modifications
+// SPDX-License-Identifier: Apache-2.0
+//
 // ShadeXX — Proxxy client
 //
-// Ported (compressed) from bitfashioned/xrpl-proxxy-demo, primarily:
-//   - src/cmix/hooks/useCmix.ts (init flow)
-//   - src/cmix/contexts/proxxy-context.tsx (request envelope + send)
+// This file is a derivative work of bitfashioned/xrpl-proxxy-demo
+// (https://github.com/bitfashioned/xrpl-proxxy-demo), specifically a port and
+// compression of:
+//   - src/cmix/hooks/useCmix.ts             (cMix init flow)
+//   - src/cmix/contexts/proxxy-context.tsx  (Proxxy request envelope + send)
+//
+// The original work is licensed under the Apache License, Version 2.0.
+// Copies and the full license text are available at:
+//   https://www.apache.org/licenses/LICENSE-2.0
+// This file is redistributed under the same Apache License 2.0; the rest of
+// the ShadeXX project is MIT-licensed.
+//
+// Modifications from the original (non-exhaustive):
+//   - Ported from React/TypeScript to vanilla ES JavaScript class
+//   - Restructured for use inside a Chrome MV3 sandbox iframe (no React,
+//     no chrome.* APIs, postMessage-only with parent offscreen document)
+//   - Status callback pattern instead of React state setters
+//   - Auto-prepend leading slash on network URIs to match relay registration
+//   - Idempotent NewCmix-then-LoadCmix flow tolerant of in-memory localStorage
+//     shim (cmixPreviouslyInitialized flag does not persist across iframe reload,
+//     but IndexedDB state does)
+//   - Cached single-init pattern (initXxdkOnce / initPromise)
 //
 // Lives inside the sandbox iframe alongside xxdk-wasm. Holds the cMixx
 // client + E2E identity once init() has resolved. Each subsequent
