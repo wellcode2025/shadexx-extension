@@ -146,8 +146,18 @@ async function runProxxyInit() {
     const r = await chrome.runtime.sendMessage({ type: 'PROXXY_INIT' });
     if (r?.ok) {
       set(els.proxxy, 'connected (' + Math.round(r.totalMs / 1000) + 's, e2eId=' + r.e2eId + ')', 'ok');
+      // All dynamic strings escaped before innerHTML — h.status and
+      // h.detail come from xxdk/cMix internals which we don't fully trust
+      // to be HTML-safe. (Security audit Pop-1.)
       const history = (r.statusHistory || [])
-        .map(h => '· ' + h.status + (h.detail ? ' (' + (typeof h.detail === 'string' ? h.detail : JSON.stringify(h.detail).slice(0, 60)) + ')' : ''))
+        .map((h) => {
+          const status = escapeHtml(String(h.status));
+          const detailRaw = h.detail
+            ? (typeof h.detail === 'string' ? h.detail : JSON.stringify(h.detail).slice(0, 60))
+            : '';
+          const detail = detailRaw ? ' (' + escapeHtml(detailRaw) + ')' : '';
+          return '· ' + status + detail;
+        })
         .join('<br>');
       els.detail.innerHTML = '<strong>cMixx connected ✓</strong><br>' + history;
     } else {

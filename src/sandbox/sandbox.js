@@ -170,6 +170,14 @@ async function getProxxyClient() {
 // ----------------------------------------------------------------------------
 
 window.addEventListener('message', async (event) => {
+  // Defense-in-depth: the sandbox iframe is only embeddable by extension
+  // pages. In our architecture, only the offscreen document parent ever
+  // sends us messages. Reject anything from another window.
+  if (event.source !== window.parent) {
+    console.warn('[shadexx:sandbox] rejected non-parent message source');
+    return;
+  }
+
   const msg = event.data;
   if (!msg || msg.target !== CONTEXT) return;
 

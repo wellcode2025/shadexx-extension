@@ -61,6 +61,15 @@ async function ensureOffscreen() {
 // ----------------------------------------------------------------------------
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // Reject messages from foreign extensions or external pages. Without
+  // externally_connectable in the manifest, this shouldn't happen — but
+  // defense-in-depth against future regressions and against any case where
+  // Chrome routes a cross-extension message through.
+  if (sender.id !== chrome.runtime.id) {
+    console.warn('[shadexx:bg] rejected foreign sender id:', sender.id);
+    return false;
+  }
+
   if (msg && msg.target === 'offscreen') return false;
 
   console.log(
@@ -143,5 +152,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return;
   }
 
-  sendResponse({ type: 'ACK', context: 'background', echo: msg });
+  // Acknowledge unknown messages without echoing payload — echoing would
+  // leak message contents in any cross-extension probe scenario.
+  sendResponse({ type: 'ACK', context: 'background' });
 });

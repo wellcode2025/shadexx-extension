@@ -46,6 +46,24 @@ const RECEPTION_IDENTITY_KEY = 'shadexxProxxyReceptionIdentity';
 const FOLLOWER_TIMEOUT_PERIOD_MS = 50_000;
 const WAIT_FOR_NETWORK_MS = 10 * 60 * 1000; // 10 min upper bound
 
+// Security limits (see docs/SECURITY_AUDIT.md S-5 and S-6).
+//
+// XXC_CONTACT_PATTERN: a serialized xxDK Contact in the on-wire format
+// `<xxc(2)…base64…xxc>`. We validate the wrapper + a reasonable length
+// bound before passing untrusted strings into RequestRestLike. The real
+// contact we ship is ~600 bytes; cap generously at 4096 to allow for
+// alternate-format contacts without being abuse-friendly.
+const XXC_CONTACT_PATTERN = /^<xxc\(2\)[A-Za-z0-9+/=]+xxc>$/;
+const XXC_CONTACT_MAX_LEN = 4096;
+
+// MAX_REQUEST_BODY_BYTES: outbound JSON-RPC bodies are capped before they
+// hit cMix. cMix single-use has internal per-message limits well below
+// 16KB; we reject earlier with a clearer error and prevent any future
+// caller (e.g. M2 content script seeing an attacker-controlled large
+// param) from exhausting cMix buffers or triggering multi-part chunking
+// we haven't tested.
+const MAX_REQUEST_BODY_BYTES = 16 * 1024;
+
 // Spike-grade password. The cMix client encrypts its local storage with
 // this; for v1.0 we'd generate a random per-install key and store it via
 // chrome.storage. For the spike, sharing a password across installs is
@@ -185,8 +203,30 @@ export class ProxxyClient {
       throw new Error('Proxxy not connected (status=' + this.status + ')');
     }
 
-    const recipientBytes =
-      typeof recipient === 'string' ? encoder.encode(recipient) : recipient;
+    // Validate the recipient. If passed as a string, it must be a
+    // properly-formed xxc contact within length bounds. Bytes are
+    // accepted as-is (these come from prior validated processing).
+    let recipientBytes;
+    if (typeof recipient === 'string') {
+      if (recipient.length > XXC_CONTACT_MAX_LEN) {
+        throw new Error('relay contact too long (max ' + XXC_CONTACT_MAX_LEN + ' chars)');
+      }
+      if (!XXC_CONTACT_PATTERN.test(recipient)) {
+        throw new Error('relay contact does not match xxc(2) format');
+      }
+      recipientBytes = encoder.encode(recipient);
+    } else {
+      recipientBytes = recipient;
+    }
+
+    // Cap outbound payload size. cMix has its own internal limits but
+    // we'd rather fail fast with a clear error than rely on the WASM
+    // layer's diagnostics.
+    if (data && data.byteLength > MAX_REQUEST_BODY_BYTES) {
+      throw new Error(
+        'request body exceeds max (' + data.byteLength + ' > ' + MAX_REQUEST_BODY_BYTES + ' bytes)'
+      );
+    }
 
     const dataStr = data ? this.xxdk.Uint8ArrayToBase64(data) : '';
     const envelope = {

@@ -36,7 +36,14 @@ const SANDBOX_TIMEOUTS = {
 };
 
 window.addEventListener('message', (event) => {
+  // Defense-in-depth: only accept messages from our own sandbox iframe.
+  // event.source must be the iframe's contentWindow AND event.origin must
+  // be the literal string 'null' (MV3 sandbox pages have null origin).
   if (event.source !== sandboxFrame.contentWindow) return;
+  if (event.origin !== 'null') {
+    console.warn('[shadexx:offscreen] rejected unexpected origin:', event.origin);
+    return;
+  }
 
   const msg = event.data;
   if (!msg) return;
@@ -81,7 +88,20 @@ async function sendToSandbox(payload, options = {}) {
 // chrome.runtime side
 // ----------------------------------------------------------------------------
 
+// Allowlist of fields to forward from chrome.runtime → sandbox postMessage.
+// Anything not on this list is dropped before forwarding, so a future
+// caller (e.g. M2 content script) can't smuggle unexpected fields into
+// sandbox-side handlers that might assume them safe.
+const FORWARDABLE_FIELDS = new Set(['type', 'relayContact', 'network', 'rpc']);
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // Reject foreign senders. Without externally_connectable in the
+  // manifest, this shouldn't happen, but defense-in-depth.
+  if (sender.id !== chrome.runtime.id) {
+    console.warn('[shadexx:offscreen] rejected foreign sender id:', sender.id);
+    return false;
+  }
+
   if (!msg || msg.target !== CONTEXT) return false;
 
   console.log('[shadexx:offscreen] received', msg.type);
@@ -110,10 +130,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (forwardTypes.has(msg.type)) {
     (async () => {
       try {
-        // Translate SANDBOX_PING → sandbox sees PING.
+        // Build the forwarded payload from an explicit allowlist —
+        // do not spread the incoming message wholesale.
         const sandboxType = msg.type === 'SANDBOX_PING' ? 'PING' : msg.type;
-        const payload = { ...msg, type: sandboxType };
-        delete payload.target;
+        const payload = { type: sandboxType };
+        for (const k of Object.keys(msg)) {
+          if (k === 'type' || k === 'target') continue;
+          if (FORWARDABLE_FIELDS.has(k)) {
+            payload[k] = msg[k];
+          }
+        }
         const reply = await sendToSandbox(payload);
         sendResponse({ type: msg.type + '_RESULT', ok: true, sandboxReply: reply, ...reply });
       } catch (err) {
@@ -127,7 +153,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
-  sendResponse({ type: 'ACK', context: CONTEXT, echo: msg });
+  // Do not echo payload back in the ACK — would expose contents to any
+  // (post-validation) cross-extension probe.
+  sendResponse({ type: 'ACK', context: CONTEXT });
 });
 
 setInterval(() => {
